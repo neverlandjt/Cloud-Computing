@@ -19,7 +19,6 @@ $ aws cloudformation deploy --template-file output.yaml --stack-name <Stack Name
   Load `static/` contents to the hosting S3 bucket (default: userregistrationaws)  
   Use `Domain` as your web application domain  
   
-  ### Demo  
-  URL: https://dv3tm1khgyyzw.cloudfront.net/ 
+
   
   
