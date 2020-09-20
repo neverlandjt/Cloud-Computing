@@ -1,0 +1,120 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Parameters:
+  HostBucketName:
+    Type: String
+    Default: userregistrationaws
+Globals:
+  Function:
+    Runtime: nodejs12.x
+    Timeout: 180
+  Api:
+    Cors:
+      AllowMethods: '''GET,POST,OPTIONS'''
+      AllowHeaders: '''*'''
+      AllowOrigin: '''*'''
+Resources:
+  DynamoCustomersTable:
+    Type: AWS::Serverless::SimpleTable
+    Properties:
+      TableName: customers
+      PrimaryKey:
+        Name: Email
+        Type: String
+  GetUsersFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: GetUsersFunction
+      CodeUri: s3://yuliannacloudcomputing/4b28499db03bcd2ce026004a66454548
+      Handler: index.getUsers
+      Policies: AmazonDynamoDBFullAccess
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            Path: /getUsers
+            Method: get
+            RestApiId:
+              Ref: ApiGateway
+  PostUsersFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: PostUsersFunction
+      CodeUri: s3://yuliannacloudcomputing/4b28499db03bcd2ce026004a66454548
+      Handler: index.postUsers
+      Policies: AmazonDynamoDBFullAccess
+      Events:
+        MyApi:
+          Type: Api
+          Properties:
+            Path: /addUser
+            Method: post
+            RestApiId:
+              Ref: ApiGateway
+  ApiGateway:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: v1
+      Name: UsersApi
+  CloudFrontOriginAccessIdentity:
+    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: Serverless website OA
+  CloudfrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Comment: Cloudfront distribution for serverless website
+        DefaultRootObject: index.html
+        Enabled: true
+        HttpVersion: http2
+        Origins:
+        - Id: s3-website
+          DomainName:
+            Fn::GetAtt:
+            - S3Bucket
+            - DomainName
+          S3OriginConfig:
+            OriginAccessIdentity:
+              Fn::Sub: origin-access-identity/cloudfront/${CloudFrontOriginAccessIdentity}
+        DefaultCacheBehavior:
+          Compress: 'true'
+          AllowedMethods:
+          - GET
+          - HEAD
+          - OPTIONS
+          ForwardedValues:
+            QueryString: false
+          TargetOriginId: s3-website
+          ViewerProtocolPolicy: redirect-to-https
+  S3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName:
+        Ref: HostBucketName
+  S3BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket:
+        Ref: S3Bucket
+      PolicyDocument:
+        Statement:
+        - Effect: Allow
+          Action: s3:GetObject
+          Resource:
+          - Fn::Sub: arn:aws:s3:::${S3Bucket}/*
+          Principal:
+            AWS:
+              Fn::Sub: arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity
+                ${CloudFrontOriginAccessIdentity}
+Outputs:
+  GetApiUrl:
+    Value:
+      Fn::Sub: https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/v1
+  Domain:
+    Description: Cloudfront Domain
+    Value:
+      Fn::GetAtt:
+      - CloudfrontDistribution
+      - DomainName
